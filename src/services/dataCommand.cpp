@@ -12,9 +12,9 @@ void handleType(std::vector<std::string> tokens) {
     if(tokens[1] == "echo") {
         std::cout << "echo is a shell builtin\n";
     } else if(tokens[1] == "exit") {
-        std::cout << "exit is a exit builtin\n";
+        std::cout << "exit is a shell builtin\n";
     } else if(tokens[1] == "type") {
-        std::cout << "type is a exit builtin\n";
+        std::cout << "type is a shell builtin\n";
     } else {
         std::cout << tokens[1] << ": not found";
     }
