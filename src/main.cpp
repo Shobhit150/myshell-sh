@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
-#include "services/dataHandling.hpp"
+#include "services/dataCommand.hpp"
+#include "utils/tokenizer.hpp"
 
 int main() {
     // Flush after every std::cout / std:cerr
@@ -17,10 +18,9 @@ int main() {
         if (command == "exit") {
             break;
         }else if(command == "echo") {
-            for(int i=1;i<tokens.size();i++) {
-                std::cout << tokens[i] << " ";
-            }
-            std::cout << "\n";
+            handleEcho(tokens);
+        } else if(command == "type") {
+            handleType(tokens);
         } else {
             std::cout << input << ": command not found" << "\n";
         }
