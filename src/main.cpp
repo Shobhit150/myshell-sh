@@ -2,10 +2,12 @@
 #include <string>
 #include "services/dataCommand.hpp"
 #include "utils/tokenizer.hpp"
+#include "shell_state.hpp"
 
 int main() {
     std::cout << std::unitbuf;
     std::cerr << std::unitbuf;
+    ShellState state;
 
     while (true) {
         std::cout << "$ ";
@@ -19,6 +21,8 @@ int main() {
             handleEcho(tokens);
         } else if(command == "type") {
             handleType(tokens);
+        } else if(command.substr(0,4) == "PATH") {
+            handlePath(tokens);
         } else {
             std::cout << input << ": command not found" << "\n";
         }

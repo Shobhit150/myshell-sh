@@ -16,6 +16,10 @@ void handleType(std::vector<std::string> tokens) {
     } else if(tokens[1] == "type") {
         std::cout << "type is a shell builtin\n";
     } else {
-        std::cout << tokens[1] << ": not found";
+        std::cout << tokens[1] << ": not found\n";
     }
+}
+
+void handlePath(std::vector<std::string> tokens) {
+    
 }
