@@ -1,25 +1,30 @@
 #include<vector>
 #include<iostream>
+#include "../shell_state.hpp"
+#include <unistd.h>
 
-void handleEcho(std::vector<std::string> tokens) {
+void handleEcho(std::vector<std::string>& tokens) {
     for(int i=1;i<tokens.size();i++) {
         std::cout << tokens[i] << " ";
     }
     std::cout << "\n";
 }
 
-void handleType(std::vector<std::string> tokens) {
-    if(tokens[1] == "echo") {
-        std::cout << "echo is a shell builtin\n";
-    } else if(tokens[1] == "exit") {
-        std::cout << "exit is a shell builtin\n";
-    } else if(tokens[1] == "type") {
-        std::cout << "type is a shell builtin\n";
-    } else {
-        std::cout << tokens[1] << ": not found\n";
+void handleType(std::vector<std::string>& tokens, ShellState &state) {
+    if (tokens.size() < 2) return;
+    std::string cmd = tokens[1];
+    if(cmd == "echo" || cmd == "exit" || cmd == "type") {
+        std::cout << cmd << " is a shell builtin\n";
+        return;
     }
-}
 
-void handlePath(std::vector<std::string> tokens) {
-    
+    for(std::string &str: state.pathDirs) {
+        std::string fullPath = str + "/" + cmd;
+
+        if (access(fullPath.c_str(), X_OK) == 0) {
+            std::cout << cmd << " is " << fullPath << "\n";
+            return;
+        }
+    }
+    std::cout << cmd << ": not found\n";
 }
