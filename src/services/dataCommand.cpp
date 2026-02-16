@@ -3,6 +3,8 @@
 #include "../shell_state.hpp"
 #include <unistd.h>
 #include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 void handleEcho(std::vector<std::string>& tokens) {
     for(int i=1;i<tokens.size();i++) {
@@ -14,7 +16,7 @@ void handleEcho(std::vector<std::string>& tokens) {
 void handleType(std::vector<std::string>& tokens, ShellState &state) {
     if (tokens.size() < 2) return;
     std::string cmd = tokens[1];
-    if(cmd == "echo" || cmd == "exit" || cmd == "type") {
+    if(cmd == "echo" || cmd == "exit" || cmd == "type" || cmd == "pwd") {
         std::cout << cmd << " is a shell builtin\n";
         return;
     }
@@ -69,5 +71,29 @@ void searchPath(std::vector<std::string>& tokens, ShellState &state) {
         waitpid(pid, &status, 0);
     } else {
         std::cerr << "fork failed\n";
+    }
+}
+
+void handlePwd() {
+    const size_t size = 1024;
+    char buffer[size];
+    if(getcwd(buffer, size) != NULL) {
+        std::cout << buffer << "\n";
+    } else {
+        std::cerr << "Error getting current working directory\n";
+    }
+}
+
+void handleCd(std::vector<std::string>& tokens) {
+    if (tokens.size() < 2) {
+        std::cerr << "cd: missing operand\n";
+        return;
+    }
+    
+    std::string str = tokens[1];
+    const char *path = str.c_str();
+
+    if(chdir(path) != 0) {
+        std::cout << "cd: " << str << ": No such file or directory\n";
     }
 }

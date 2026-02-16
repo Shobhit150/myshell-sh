@@ -40,6 +40,11 @@ int main() {
             handleEcho(tokens);
         } else if(command == "type") {
             handleType(tokens, state);
+        } else if(command == "pwd") {
+            handlePwd();
+        } else if(command == "cd") {
+            handleCd(tokens);
+            
         } else {
             searchPath(tokens, state);
         }
