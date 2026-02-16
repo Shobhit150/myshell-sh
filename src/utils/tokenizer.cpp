@@ -6,7 +6,21 @@ std::vector<std::string> tokenizer(std::string input) {
     std::string word = "";
     bool singleQuote = false;
     bool doubleQuote = false;
+    bool escape = false;
+
     for(char &c: input) {
+
+        if(escape) {
+            word.push_back(c);
+            escape = false;
+            continue;
+        }
+
+        if (c == '\\' && !singleQuote && !doubleQuote) {
+            escape = true;
+            continue;
+        }
+
         if(c=='"' && !singleQuote) {
             doubleQuote = !doubleQuote;
             continue;
@@ -24,6 +38,11 @@ std::vector<std::string> tokenizer(std::string input) {
             word.push_back(c);
         }
     }
+
+    if (escape) {
+        word.push_back('\\');
+    }
+    
     if(!word.empty()) {
         tokens.push_back(word);
     }
