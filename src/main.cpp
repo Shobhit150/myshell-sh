@@ -41,7 +41,7 @@ int main() {
         } else if(command == "type") {
             handleType(tokens, state);
         } else {
-            std::cout << input << ": command not found" << "\n";
+            searchPath(tokens, state);
         }
     }
 }
