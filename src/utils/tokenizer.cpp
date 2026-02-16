@@ -8,7 +8,8 @@ std::vector<std::string> tokenizer(std::string input) {
     bool doubleQuote = false;
     bool escape = false;
 
-    for(char &c: input) {
+    for(int i=0;i<input.size();i++) {
+        char c = input[i];
 
         if(escape) {
             word.push_back(c);
@@ -18,6 +19,21 @@ std::vector<std::string> tokenizer(std::string input) {
 
         if (c == '\\' && !singleQuote && !doubleQuote) {
             escape = true;
+            continue;
+        }
+
+        if(doubleQuote && c == '\\') {
+            if(i+1 < input.size()) {
+                char next = input[i+1];
+
+                if(next == '"' || next == '\\') {
+                    word.push_back(next);
+                    i++;
+                    continue;
+                }
+            }
+
+            word.push_back('\\');
             continue;
         }
 
