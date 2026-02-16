@@ -5,12 +5,44 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
+
+std::string extratedirect(std::vector<std::string>& tokens) {
+    for(size_t i=0;i+1<tokens.size();i++) {
+        if(tokens[i] == ">" || tokens[i] == "1>") {
+            std::string file = tokens[i+1];
+            tokens.erase(tokens.begin() + i, tokens.begin() + i + 2);
+            return file;            
+        }
+    }
+    return "";
+}
 
 void handleEcho(std::vector<std::string>& tokens) {
+    std::string redirectedFile = extratedirect(tokens);
+
+    int savedFd = -1;
+
+    if(!redirectedFile.empty()) {
+        savedFd = dup(STDOUT_FILENO);
+        int fd = open(redirectedFile.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+        if(fd < 0) {
+            std::cerr << "echo: " << redirectedFile << ": cannot open file\n";
+        }
+        dup2(fd, STDOUT_FILENO);
+        close(fd);
+    }
+
     for(int i=1;i<tokens.size();i++) {
         std::cout << tokens[i] << " ";
     }
     std::cout << "\n";
+    std::cout.flush();
+
+    if(savedFd != -1) {
+        dup2(savedFd, STDOUT_FILENO);
+        close(savedFd);
+    }
 }
 
 void handleType(std::vector<std::string>& tokens, ShellState &state) {
@@ -34,6 +66,8 @@ void handleType(std::vector<std::string>& tokens, ShellState &state) {
 }
 
 void searchPath(std::vector<std::string>& tokens, ShellState &state) {
+    std::string redirectedFile = extratedirect(tokens);
+
     std::string cmd = tokens[0];
     std::string foundPath = "";
 
@@ -63,9 +97,17 @@ void searchPath(std::vector<std::string>& tokens, ShellState &state) {
     pid_t pid = fork();
 
     if(pid == 0) {
+        if(!redirectedFile.empty()) {
+            int fd = open(redirectedFile.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+            if(fd < 0) {
+                std::cerr << "echo: " << redirectedFile << ": cannot open file\n";
+            }
+            dup2(fd, STDOUT_FILENO);
+            close(fd);
+        }
         execvp(foundPath.c_str(), args.data());
         std::cout << "execution failed\n";
-        exit(1);
+        _exit(1);
     } else if(pid > 0) {
         int status;
         waitpid(pid, &status, 0);

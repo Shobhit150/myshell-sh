@@ -32,7 +32,6 @@ std::vector<std::string> tokenizer(std::string input) {
                     continue;
                 }
             }
-
             word.push_back('\\');
             continue;
         }
