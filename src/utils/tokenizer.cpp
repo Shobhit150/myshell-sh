@@ -4,15 +4,22 @@
 std::vector<std::string> tokenizer(std::string input) {
     std::vector<std::string> tokens;
     std::string word = "";
-    bool quoteOpen = false;
+    bool singleQuote = false;
+    bool doubleQuote = false;
     for(char &c: input) {
-        if(c=='"') {
-            quoteOpen = !quoteOpen;
+        if(c=='"' && !singleQuote) {
+            doubleQuote = !doubleQuote;
             continue;
         }
-        if(c == ' ' && !quoteOpen) {
-            tokens.push_back(word);
-            word.clear();
+        if(c=='\'' && !doubleQuote) {
+            singleQuote = !singleQuote;
+            continue;
+        }
+        if(c == ' ' && !doubleQuote && !singleQuote) {
+            if (!word.empty()) {
+                tokens.push_back(word);
+                word.clear();
+            }
         } else {
             word.push_back(c);
         }

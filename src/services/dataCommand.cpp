@@ -89,11 +89,20 @@ void handleCd(std::vector<std::string>& tokens) {
         std::cerr << "cd: missing operand\n";
         return;
     }
-    
-    std::string str = tokens[1];
-    const char *path = str.c_str();
+    const char* path;
 
-    if(chdir(path) != 0) {
+    std::string str = tokens[1];
+
+    if (str == "~") {
+        path = getenv("HOME");
+        if (!path) {
+            std::cerr << "cd: HOME not set\n";
+            return;
+        }
+    } else {
+        path = str.c_str();
+    }
+    if (chdir(path) != 0) {
         std::cout << "cd: " << str << ": No such file or directory\n";
     }
 }
