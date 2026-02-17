@@ -7,41 +7,83 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-std::string extratedirect(std::vector<std::string>& tokens) {
-    for(size_t i=0;i+1<tokens.size();i++) {
+struct RedirectInfo {
+    std::string stdoutFile;
+    std::string stderrFile;
+    bool stdoutAppend = false;
+    bool stderrAppend = false;
+};
+
+RedirectInfo extractRedirect(std::vector<std::string>& tokens) {
+    RedirectInfo info;
+    for(size_t i = 0; i + 1 < tokens.size(); ) {
         if(tokens[i] == ">" || tokens[i] == "1>") {
-            std::string file = tokens[i+1];
+            info.stdoutFile = tokens[i+1];
             tokens.erase(tokens.begin() + i, tokens.begin() + i + 2);
-            return file;            
+        } else if(tokens[i] == ">>" || tokens[i] == "1>>") {
+            info.stdoutFile = tokens[i+1];
+            info.stdoutAppend = true;
+            tokens.erase(tokens.begin() + i, tokens.begin() + i + 2);
+        } else if(tokens[i] == "2>") {
+            info.stderrFile = tokens[i+1];
+            tokens.erase(tokens.begin() + i, tokens.begin() + i + 2);
+        } else if (tokens[i] == "2>>") {
+            info.stderrFile = tokens[i + 1];
+            info.stderrAppend = true;
+            tokens.erase(tokens.begin() + i, tokens.begin() + i + 2);
+        } else {
+            i++;
         }
     }
-    return "";
+    return info;
 }
 
 void handleEcho(std::vector<std::string>& tokens) {
-    std::string redirectedFile = extratedirect(tokens);
+    auto redirect = extractRedirect(tokens);
 
-    int savedFd = -1;
+    int savedStdout = -1;
+    int savedStderr = -1;
 
-    if(!redirectedFile.empty()) {
-        savedFd = dup(STDOUT_FILENO);
-        int fd = open(redirectedFile.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-        if(fd < 0) {
-            std::cerr << "echo: " << redirectedFile << ": cannot open file\n";
-        }
+    if(!redirect.stdoutFile.empty()) {
+        savedStdout = dup(STDOUT_FILENO);
+        int flags = O_WRONLY | O_CREAT |
+            (redirect.stdoutAppend ? O_APPEND : O_TRUNC);
+        int fd = open(redirect.stdoutFile.c_str(), flags, 0644);
+        if (fd < 0) {
+                perror("open");
+                return;
+            }
         dup2(fd, STDOUT_FILENO);
         close(fd);
     }
+    if(!redirect.stderrFile.empty()) {
+        savedStderr = dup(STDERR_FILENO);
+        int flags = O_WRONLY | O_CREAT |
+            (redirect.stderrAppend ? O_APPEND : O_TRUNC);
+        int fd = open(redirect.stderrFile.c_str(), flags, 0644);
+        if (fd < 0) {
+            perror("open");
+            return;
+        }
+        dup2(fd, STDERR_FILENO);
+        close(fd);
+    }
 
-    for(int i=1;i<tokens.size();i++) {
-        std::cout << tokens[i] << " ";
+
+    for (size_t i = 1; i < tokens.size(); ++i) {
+        if (i > 1) std::cout << " ";
+        std::cout << tokens[i];
     }
     std::cout << "\n";
     std::cout.flush();
 
-    if(savedFd != -1) {
-        dup2(savedFd, STDOUT_FILENO);
-        close(savedFd);
+    if(savedStdout != -1) {
+        dup2(savedStdout, STDOUT_FILENO);
+        close(savedStdout);
+    }
+    if(savedStderr != -1) {
+        dup2(savedStderr, STDERR_FILENO);
+        close(savedStderr);
     }
 }
 
@@ -66,7 +108,9 @@ void handleType(std::vector<std::string>& tokens, ShellState &state) {
 }
 
 void searchPath(std::vector<std::string>& tokens, ShellState &state) {
-    std::string redirectedFile = extratedirect(tokens);
+    auto redirect = extractRedirect(tokens);
+    int savedStdout = -1;
+    int savedStderr = -1;
 
     std::string cmd = tokens[0];
     std::string foundPath = "";
@@ -83,7 +127,7 @@ void searchPath(std::vector<std::string>& tokens, ShellState &state) {
     }
 
     if(foundPath.empty()) {
-        std::cout << cmd << ": not found\n";
+        std::cerr << cmd << ": not found\n";
         return;
     }
 
@@ -97,12 +141,29 @@ void searchPath(std::vector<std::string>& tokens, ShellState &state) {
     pid_t pid = fork();
 
     if(pid == 0) {
-        if(!redirectedFile.empty()) {
-            int fd = open(redirectedFile.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
-            if(fd < 0) {
-                std::cerr << "echo: " << redirectedFile << ": cannot open file\n";
+        if(!redirect.stdoutFile.empty()) {
+            savedStdout = dup(STDOUT_FILENO);
+            int flags = O_WRONLY | O_CREAT |
+                (redirect.stdoutAppend ? O_APPEND : O_TRUNC);
+            int fd = open(redirect.stdoutFile.c_str(), flags, 0644);
+            if (fd < 0) {
+                perror("open");
+                return;
             }
             dup2(fd, STDOUT_FILENO);
+            close(fd);
+        }
+        if(!redirect.stderrFile.empty()) {
+            savedStderr = dup(STDERR_FILENO);
+            int flags = O_WRONLY | O_CREAT |
+                (redirect.stderrAppend ? O_APPEND : O_TRUNC);
+            int fd = open(redirect.stderrFile.c_str(), flags, 0644);
+            if (fd < 0) {
+                perror("open");
+                return;
+            }
+
+            dup2(fd, STDERR_FILENO);
             close(fd);
         }
         execvp(foundPath.c_str(), args.data());
@@ -145,6 +206,6 @@ void handleCd(std::vector<std::string>& tokens) {
         path = str.c_str();
     }
     if (chdir(path) != 0) {
-        std::cout << "cd: " << str << ": No such file or directory\n";
+        std::cerr << "cd: " << str << ": No such file or directory\n";
     }
 }
