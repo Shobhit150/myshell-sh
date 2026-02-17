@@ -33,8 +33,15 @@ int main() {
         std::string input;
         std::getline(std::cin, input);
         std::vector<std::string> tokens = tokenizer(input);
+        if (tokens.empty()) continue;
+
+        auto redirect = extractRedirect(tokens);
+
+        SavedFDs saved = applyRedirect(redirect);
+
         std::string command = tokens[0];
         if (command == "exit") {
+            restoreFDs(saved);
             break;
         }else if(command == "echo") {
             handleEcho(tokens);
@@ -48,5 +55,7 @@ int main() {
         } else {
             searchPath(tokens, state);
         }
+
+        restoreFDs(saved);
     }
 }

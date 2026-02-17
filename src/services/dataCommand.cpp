@@ -6,13 +6,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-
-struct RedirectInfo {
-    std::string stdoutFile;
-    std::string stderrFile;
-    bool stdoutAppend = false;
-    bool stderrAppend = false;
-};
+#include "dataCommand.hpp"
 
 RedirectInfo extractRedirect(std::vector<std::string>& tokens) {
     RedirectInfo info;
@@ -38,53 +32,54 @@ RedirectInfo extractRedirect(std::vector<std::string>& tokens) {
     return info;
 }
 
-void handleEcho(std::vector<std::string>& tokens) {
-    auto redirect = extractRedirect(tokens);
 
-    int savedStdout = -1;
-    int savedStderr = -1;
-
-    if(!redirect.stdoutFile.empty()) {
-        savedStdout = dup(STDOUT_FILENO);
+SavedFDs applyRedirect(RedirectInfo &r) {
+    SavedFDs s;
+    if(!r.stdoutFile.empty()) {
+        s.out = dup(STDOUT_FILENO);
         int flags = O_WRONLY | O_CREAT |
-            (redirect.stdoutAppend ? O_APPEND : O_TRUNC);
-        int fd = open(redirect.stdoutFile.c_str(), flags, 0644);
+            (r.stdoutAppend ? O_APPEND : O_TRUNC);
+        int fd = open(r.stdoutFile.c_str(), flags, 0644);
         if (fd < 0) {
-                perror("open");
-                return;
-            }
+            perror("open");
+            return s;
+        }
         dup2(fd, STDOUT_FILENO);
         close(fd);
     }
-    if(!redirect.stderrFile.empty()) {
-        savedStderr = dup(STDERR_FILENO);
+    if(!r.stderrFile.empty()) {
+        s.err = dup(STDERR_FILENO);
         int flags = O_WRONLY | O_CREAT |
-            (redirect.stderrAppend ? O_APPEND : O_TRUNC);
-        int fd = open(redirect.stderrFile.c_str(), flags, 0644);
+            (r.stderrAppend ? O_APPEND : O_TRUNC);
+        int fd = open(r.stderrFile.c_str(), flags, 0644);
         if (fd < 0) {
             perror("open");
-            return;
+            return s;
         }
         dup2(fd, STDERR_FILENO);
         close(fd);
     }
+    return s;
+}
 
+void restoreFDs(const SavedFDs& s) {
+    if (s.out != -1) {
+        dup2(s.out, STDOUT_FILENO);
+        close(s.out);
+    }
 
+    if (s.err != -1) {
+        dup2(s.err, STDERR_FILENO);
+        close(s.err);
+    }
+}
+
+void handleEcho(std::vector<std::string>& tokens) {
     for (size_t i = 1; i < tokens.size(); ++i) {
         if (i > 1) std::cout << " ";
         std::cout << tokens[i];
     }
     std::cout << "\n";
-    std::cout.flush();
-
-    if(savedStdout != -1) {
-        dup2(savedStdout, STDOUT_FILENO);
-        close(savedStdout);
-    }
-    if(savedStderr != -1) {
-        dup2(savedStderr, STDERR_FILENO);
-        close(savedStderr);
-    }
 }
 
 void handleType(std::vector<std::string>& tokens, ShellState &state) {
@@ -108,14 +103,10 @@ void handleType(std::vector<std::string>& tokens, ShellState &state) {
 }
 
 void searchPath(std::vector<std::string>& tokens, ShellState &state) {
-    auto redirect = extractRedirect(tokens);
-    int savedStdout = -1;
-    int savedStderr = -1;
 
     std::string cmd = tokens[0];
     std::string foundPath = "";
 
-    std::string path = tokens[0];
     for(std::string &str: state.pathDirs) {
         std::string dir = str.empty() ? "." : str;
         std::string fullPath = dir + "/" + cmd;
@@ -140,40 +131,15 @@ void searchPath(std::vector<std::string>& tokens, ShellState &state) {
 
     pid_t pid = fork();
 
-    if(pid == 0) {
-        if(!redirect.stdoutFile.empty()) {
-            savedStdout = dup(STDOUT_FILENO);
-            int flags = O_WRONLY | O_CREAT |
-                (redirect.stdoutAppend ? O_APPEND : O_TRUNC);
-            int fd = open(redirect.stdoutFile.c_str(), flags, 0644);
-            if (fd < 0) {
-                perror("open");
-                return;
-            }
-            dup2(fd, STDOUT_FILENO);
-            close(fd);
-        }
-        if(!redirect.stderrFile.empty()) {
-            savedStderr = dup(STDERR_FILENO);
-            int flags = O_WRONLY | O_CREAT |
-                (redirect.stderrAppend ? O_APPEND : O_TRUNC);
-            int fd = open(redirect.stderrFile.c_str(), flags, 0644);
-            if (fd < 0) {
-                perror("open");
-                return;
-            }
-
-            dup2(fd, STDERR_FILENO);
-            close(fd);
-        }
+    if (pid == 0) {
         execvp(foundPath.c_str(), args.data());
-        std::cout << "execution failed\n";
+        perror("execvp");
         _exit(1);
-    } else if(pid > 0) {
+    } else if (pid > 0) {
         int status;
         waitpid(pid, &status, 0);
     } else {
-        std::cerr << "fork failed\n";
+        perror("fork");
     }
 }
 
