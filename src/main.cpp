@@ -1,37 +1,22 @@
 #include <iostream>
+#include <termios.h>
+#include <unistd.h>
+#include <vector>
 #include <string>
 #include "services/dataCommand.hpp"
 #include "utils/tokenizer.hpp"
 #include "shell_state.hpp"
 #include <cstdlib>
+#include "utils/terminal.hpp"
+#include "core/init.hpp"
 
 int main() {
-    std::cout << std::unitbuf;
-    std::cerr << std::unitbuf;
+
     ShellState state;
-
-
-    char* envPath = std::getenv("PATH");
-    if(envPath) {
-        std::string pathStr(envPath);
-        std::string temp = "";
-        for(int i=0;i<pathStr.size();i++) {
-            if(pathStr[i] == ':') {
-                state.pathDirs.push_back(temp);
-                temp = "";
-            } else {
-                temp.push_back(pathStr[i]);
-            }
-        }
-        if(!temp.empty()) {
-            state.pathDirs.push_back(temp);
-        }
-    }
+    initialization(state);
 
     while (true) {
-        std::cout << "$ ";
-        std::string input;
-        std::getline(std::cin, input);
+        std::string input = readLineRaw("$ ");
         std::vector<std::string> tokens = tokenizer(input);
         if (tokens.empty()) continue;
 
