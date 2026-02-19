@@ -1,3 +1,4 @@
+// terminal.cpp
 #include "terminal.hpp"
 #include <termios.h>
 #include <unistd.h>
@@ -7,72 +8,79 @@
 
 class Node {
 public:
-    Node* arr[26]{};
+    Node* arr[128]{};
     bool endsWith = false;
     int freq = 0;
     int bestFreq = 0;
 };
 
-static inline bool normalize(char &c) {
-    if (c >= 'A' && c <= 'Z')
-        c = c - 'A' + 'a'; 
-
-    if (c < 'a' || c > 'z')
-        return false;
-
-    return true;
-}
-
 class Trie {
 public:
     Node* root = new Node();
-    void insert(std::string &s, int score = 1) {
+    void insert(const std::string &s, int score = 1) {
         Node* temp = root;
-        for(char &c: s) {
-            if (!normalize(c)) return;
-            int idx = c - 'a';
-            if(temp->arr[idx] == nullptr) {
-                temp->arr[idx] = new Node();
-            }
-            temp = temp->arr[idx];
+
+        for (unsigned char c : s) {
+            if (!temp->arr[c])
+                temp->arr[c] = new Node();
+
+            temp = temp->arr[c];
             temp->bestFreq = std::max(temp->bestFreq, score);
         }
-        temp->endsWith = true;  
+
+        temp->endsWith = true;
         temp->freq += score;
     }
 
-    Node* exist(Node* node, std::string &s) {
+    Node* exist(Node* node, const std::string &s) {
         Node* temp = node;
-        for(int i=0;i<s.size();i++) {
-            if (!normalize(s[i])) return nullptr;
-            int idx = s[i] - 'a';
-            if(temp->arr[idx] == nullptr) {
-                return nullptr;
-            }
-            temp = temp->arr[idx];
+
+        for (unsigned char c : s) {
+            if (!temp->arr[c]) return nullptr;
+            temp = temp->arr[c];
         }
+
         return temp;
+    }
+
+    void recordUsage(const std::string &s) {
+        Node* temp = root;
+        std::vector<Node*> path;
+
+        for (unsigned char c : s) {
+            if (!temp->arr[c]) return;
+            temp = temp->arr[c];
+            path.push_back(temp);
+        }
+        if (!temp->endsWith) return;
+        temp->freq++;
+        int f = temp->freq;
+        for(auto &node: path) {
+            node->bestFreq = std::max(node->bestFreq, f);
+        }
     }
 
     bool autocomplete(std::string &s) {
         Node* path = exist(root, s);
+
         if(path == nullptr) return false;
+        if (path->endsWith) {
+            s += " ";
+            return true;
+        }
         std::string input = s;
         while(path->endsWith != true) {
             int bestIdx = -1;
             int best = -1;
-            for(int i=0;i<26;i++) {
-                if(path->arr[i] != nullptr) {
-                    // input += char('a' + i);
-                    // path = path->arr[i];
-                    if(path->arr[i]->bestFreq > best) {
-                        best = path->arr[i]->bestFreq;
-                        bestIdx = i;
-                    }
+            for (int i = 0; i < 128; i++) {
+                if (path->arr[i] &&
+                    path->arr[i]->bestFreq > best) {
+                    best = path->arr[i]->bestFreq;
+                    bestIdx = i;
                 }
             }
             if (bestIdx == -1) return false;
-            input += char('a' + bestIdx);
+            input += char(bestIdx);
             path = path->arr[bestIdx];
         }
         s = input + " ";
@@ -80,13 +88,17 @@ public:
     }
 };
 
-static termios orig_termios;
 Trie t;
+static termios orig_termios;
 
-static std::vector<std::pair<std::string,int>> BUILDINS = {
-    {"echo", 5},
-    {"exit", 3}
+static std::vector<std::pair<std::string,int>> BUILTINS = {
+    {"echo", 1},
+    {"exit", 1}
 };
+
+void recordUsage(const std::string &cmd) {
+    t.recordUsage(cmd);
+}
 
 void enableRawMode() {
     tcgetattr(STDIN_FILENO, &orig_termios);
@@ -101,7 +113,7 @@ void disableRawMode() {
 }
 
 void buildTree() {
-    for(auto& [word, priority] : BUILDINS) {
+    for(auto &[word, priority]: BUILTINS) {
         t.insert(word, priority);
     }
 }

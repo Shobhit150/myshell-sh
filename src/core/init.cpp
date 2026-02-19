@@ -1,3 +1,4 @@
+//init.cpp
 #include <iostream>
 #include "../shell_state.hpp"
 #include "../utils/terminal.hpp"
@@ -5,7 +6,6 @@
 void initialization(ShellState& state) {
     std::cout << std::unitbuf;
     std::cerr << std::unitbuf;
-    ShellState state;
     char* envPath = std::getenv("PATH");
     if(envPath) {
         std::string pathStr(envPath);
@@ -22,5 +22,4 @@ void initialization(ShellState& state) {
             state.pathDirs.push_back(temp);
         }
     }
-    buildTree();
 }

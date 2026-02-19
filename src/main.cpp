@@ -1,3 +1,4 @@
+// main.cpp
 #include <iostream>
 #include <termios.h>
 #include <unistd.h>
@@ -11,6 +12,7 @@
 #include "core/init.hpp"
 
 int main() {
+    buildTree();
 
     ShellState state;
     initialization(state);
@@ -26,10 +28,12 @@ int main() {
 
         std::string command = tokens[0];
         if (command == "exit") {
+            recordUsage(command);
             restoreFDs(saved);
             break;
         }else if(command == "echo") {
             handleEcho(tokens);
+            recordUsage(command);
         } else if(command == "type") {
             handleType(tokens, state);
         } else if(command == "pwd") {
