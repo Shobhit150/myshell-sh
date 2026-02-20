@@ -230,10 +230,19 @@ std::string readLineRaw(const std::string &prompt) {
             }
 
             if(!lastWasTab) {
-                for(int i=0;i<matches.size();i++) {
+                // for(int i=0;i<matches.size();i++) {
                     std::cout << "\x07" << std::flush;
+                    lastWasTab = true;
+                    lastMatches = matches;
                     continue;
+                // }
+            } else {
+                std::cout << "\n";
+                for(int i=0;i<lastMatches.size();i++) {
+                    std::cout << lastMatches[i] << "  ";
                 }
+                std::cout << "\n";
+                std::cout << "\r" << prompt << input << std::flush;
             }
 
         } else if (c == 127) {
