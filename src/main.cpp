@@ -12,11 +12,10 @@
 #include "core/init.hpp"
 
 int main() {
-    buildTree();
 
     ShellState state;
     initialization(state);
-
+    buildTree(state);
     while (true) {
         std::string input = readLineRaw("$ ");
         std::vector<std::string> tokens = tokenizer(input);

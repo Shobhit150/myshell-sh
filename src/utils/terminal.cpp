@@ -5,6 +5,9 @@
 #include <iostream>
 #include <vector>
 #include <algorithm>
+#include "../shell_state.hpp"
+#include <dirent.h>
+#include <sys/stat.h>
 
 class Node {
 public:
@@ -60,6 +63,33 @@ public:
         }
     }
 
+    void collect(Node* start, std::string &prefix, std::vector<std::string> &out) {
+        std::vector<std::pair<Node*, std::string>> st;
+        st.push_back({start, prefix});
+        while(!st.empty()) {
+            auto [node, curr] = st.back();
+            st.pop_back();
+            if(node->endsWith) out.push_back(curr);
+
+            for(int i=0;i<128;i++) {
+                if(node->arr[i]) {
+                    std::string temp = curr + char(i);
+                    st.push_back({node->arr[i], temp});
+                }
+            }
+        }
+    }
+
+    std::vector<std::string> getMatches(std::string &prefix) {
+        std::vector<std::string> res;
+
+        Node* node = exist(root, prefix);
+        if(!node) return res;
+
+        collect(node, prefix, res);
+        return res;
+    }
+
     bool autocomplete(std::string &s) {
         Node* path = exist(root, s);
 
@@ -88,8 +118,13 @@ public:
     }
 };
 
+
+// Global variable
 Trie t;
 static termios orig_termios;
+bool lastWasTab = false;
+std::vector<std::string> lastMatches;
+std::string lastPrefix;
 
 static std::vector<std::pair<std::string,int>> BUILTINS = {
     {"echo", 1},
@@ -112,9 +147,28 @@ void disableRawMode() {
     tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
 }
 
-void buildTree() {
+void buildTree(ShellState &state) {
+
     for(auto &[word, priority]: BUILTINS) {
         t.insert(word, priority);
+    }
+    for(auto &dir: state.pathDirs) {
+        DIR* d =  opendir(dir.c_str());
+        if(!d) continue;
+        struct dirent*entry;
+
+        while((entry = readdir(d)) != nullptr) {
+            std::string name = entry->d_name;
+
+            if(name == "." || name == "..") continue;
+
+            std::string path = dir + "/" + name;
+
+            if(access(path.c_str(), X_OK) == 0) {
+                t.insert(name, 1);
+            }
+        }
+        closedir(d);
     }
 }
 
@@ -135,6 +189,11 @@ static bool autocomplete(std::string &input) {
     return t.autocomplete(input);
 }
 
+static std::vector<std::string> getMatches(std::string &prefix) {
+    return t.getMatches(prefix);
+}
+
+
 std::string readLineRaw(const std::string &prompt) {
     std::cout << prompt << std::flush;
 
@@ -151,9 +210,32 @@ std::string readLineRaw(const std::string &prompt) {
             std::cout << "\n";
             break;
         } else if (c == '\t') {
-            if(autocomplete(input)) {
-                std::cout << "\r" << prompt << input << std::flush;
+            // if(autocomplete(input)) {
+            //     std::cout << "\r" << prompt << input << std::flush;
+            // } else {
+            //     std::cout << "\r" << prompt << input << "\x07" << std::flush;
+            // }
+            std::vector<std::string> matches = getMatches(input);
+            if(matches.empty()) {
+                std::cout << "\x07" << std::flush;
+                lastWasTab = false;
+                continue;
             }
+            sort(matches.begin(), matches.end());
+
+            if(matches.size() == 1) {
+                input = matches[0] + " ";
+                std::cout << "\r" << prompt << input << std::flush;
+                continue;
+            }
+
+            if(!lastWasTab) {
+                for(int i=0;i<matches.size();i++) {
+                    std::cout << "\x07" << std::flush;
+                    continue;
+                }
+            }
+
         } else if (c == 127) {
             if(!input.empty()) {
                 input.pop_back();
