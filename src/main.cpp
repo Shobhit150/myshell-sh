@@ -23,6 +23,20 @@ int main() {
 
         auto redirect = extractRedirect(tokens);
 
+        bool hasPipe = false;
+
+
+        for(int i=0;i<tokens.size();i++) {
+            if(tokens[i] == "|") {
+                handlePipe(tokens, i, state);
+                hasPipe = true;
+                break;
+            }
+        }
+        if (hasPipe) {
+            continue;
+        }
+
         SavedFDs saved = applyRedirect(redirect);
 
         std::string command = tokens[0];

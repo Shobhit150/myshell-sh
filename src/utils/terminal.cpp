@@ -193,6 +193,16 @@ static std::vector<std::string> getMatches(std::string &prefix) {
     return t.getMatches(prefix);
 }
 
+std::string longestcommonprefix(std::vector<std::string> &v) {
+    if(v.empty()) return "";
+
+    std::string first = v[0];
+    std::string last = v.back();
+    int i = 0;
+    int limit = std::min(first.size(), last.size());
+    while(i<limit && first[i] == last[i]) i++;
+    return first.substr(0,i);
+}
 
 std::string readLineRaw(const std::string &prompt) {
     std::cout << prompt << std::flush;
@@ -229,30 +239,40 @@ std::string readLineRaw(const std::string &prompt) {
                 continue;
             }
 
-            if(!lastWasTab) {
-                // for(int i=0;i<matches.size();i++) {
+            std::string lcp = longestcommonprefix(matches);
+
+            if (lcp.size() > input.size()) {
+                input = lcp;    
+                std::cout << "\r" << prompt << input << std::flush;
+                lastWasTab = false;
+            } else {
+                std::string match = matches[0];
+                if(!lastWasTab) {
                     std::cout << "\x07" << std::flush;
                     lastWasTab = true;
                     lastMatches = matches;
                     continue;
-                // }
-            } else {
-                std::cout << "\n";
-                for(int i=0;i<lastMatches.size();i++) {
-                    std::cout << lastMatches[i] << "  ";
+                } else {
+                    std::cout << "\n";
+                    for(int i=0;i<lastMatches.size();i++) {
+                        std::cout << lastMatches[i] << "  ";
+                    }
+                    std::cout << "\n";
+                    std::cout << "\r" << prompt << input << std::flush;
                 }
-                std::cout << "\n";
-                std::cout << "\r" << prompt << input << std::flush;
             }
+            
 
         } else if (c == 127) {
             if(!input.empty()) {
                 input.pop_back();
                 std::cout << "\b \b" << std::flush;
+                lastWasTab = false;
             }
         } else {
             input.push_back(c);
             std::cout << c << std::flush;
+            lastWasTab = false; 
         }
     }
     disableRawMode();

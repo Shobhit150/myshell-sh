@@ -23,3 +23,4 @@ void handleCd(std::vector<std::string>& tokens);
 SavedFDs applyRedirect(RedirectInfo &r);
 void restoreFDs(const SavedFDs& s);
 RedirectInfo extractRedirect(std::vector<std::string>& tokens);
+void handlePipe(std::vector<std::string>& tokens, int i, ShellState &state);
